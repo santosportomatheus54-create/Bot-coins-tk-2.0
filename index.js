@@ -1,12 +1,9 @@
 import fs from "fs";
 import { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
-import QuickDB from "quick.db";
+import { db } from "./database.js";
 
-// Ler config.json
+// Ler config
 const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
-
-// Iniciar DB
-const db = new QuickDB();
 
 // Loja
 const LOJA = {
@@ -19,7 +16,7 @@ const LOJA = {
 // Cliente
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
 
-// Função: abrir loja
+// Abrir loja
 async function abrirLoja(interaction) {
   const embed = new EmbedBuilder()
     .setTitle("🛒 LOJA ORG TK")
@@ -36,7 +33,7 @@ async function abrirLoja(interaction) {
   await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
 }
 
-// Função: comprar item
+// Comprar item
 async function comprar(interaction) {
   const item = LOJA[interaction.customId];
   if (!item) return;
@@ -49,7 +46,6 @@ async function comprar(interaction) {
 
   perfil.moedas -= item.preco;
 
-  // VIP com expiração
   if (item.dias) {
     const expire = Date.now() + item.dias * 24 * 60 * 60 * 1000;
     perfil.vipExpire = expire;
@@ -57,14 +53,13 @@ async function comprar(interaction) {
 
   await db.set(user, perfil);
 
-  // Dar cargo no servidor
   const membro = await interaction.guild.members.fetch(user);
   if (item.cargo) await membro.roles.add(item.cargo);
 
   interaction.reply({ content: `✅ Você comprou ${item.nome}!`, ephemeral: true });
 }
 
-// Função: usar sorte
+// Usar sorte
 async function usarSorte(user) {
   let perfil = await db.get(user) || { moedas: 0, xp: 0 };
   const rand = Math.random() * 100;
@@ -78,7 +73,7 @@ async function usarSorte(user) {
   return perfil;
 }
 
-// Função: abrir perfil
+// Perfil
 function pegarLiga(perfil) {
   if (!perfil) return null;
   const { bronze, prata, gold } = config.ligaIds;
@@ -114,7 +109,7 @@ async function abrirPerfil(interaction) {
   await interaction.reply({ embeds: [embed], ephemeral: true });
 }
 
-// Registrar comandos
+// Registrar Slash Commands
 client.once("ready", async () => {
   console.log(`Bot online: ${client.user.tag}`);
 
@@ -144,4 +139,4 @@ client.on("interactionCreate", async interaction => {
 });
 
 // Login
-await client.login(config.token);u
+await client.login(config.token);
