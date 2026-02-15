@@ -1,7 +1,7 @@
 {
   "name": "bot-coins-tk",
   "version": "1.0.0",
-  "description": "Bot completo de moedas e ranking",
+  "description": "Bot completo de moedas, ranking e VIP",
   "main": "index.js",
   "type": "module",
   "scripts": {
