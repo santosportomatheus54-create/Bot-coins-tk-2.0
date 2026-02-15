@@ -1,142 +1,140 @@
-import fs from "fs";
-import { Client, GatewayIntentBits, SlashCommandBuilder, REST, Routes, ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
-import { db } from "./database.js";
+import { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, REST, Routes, Events } from "discord.js"; import { QuickDB } from "quick.db";
 
-// Ler config
-const config = JSON.parse(fs.readFileSync("./config.json", "utf8"));
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] }); const db = new QuickDB();
 
-// Loja
-const LOJA = {
-  vip7: { nome: "VIP 7 Dias", preco: 10, cargo: config.vipIds.vip7, dias: 7 },
-  vip30: { nome: "VIP 30 Dias", preco: 40, cargo: config.vipIds.vip30, dias: 30 },
-  mira: { nome: "Mira Abusiva", preco: 45, cargo: config.vipIds.mira },
-  rei: { nome: "Rei da TK", preco: 25, cargo: config.vipIds.rei }
-};
+const LEVEL_XP = 100; const TEMPORADA = "s1";
 
-// Cliente
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers] });
+const cargosXP = { 5: "ID_CARGO_5", 10: "ID_CARGO_10", 20: "ID_CARGO_20" };
 
-// Abrir loja
-async function abrirLoja(interaction) {
+const commands = [ new SlashCommandBuilder().setName("painel").setDescription("Abrir painel"), new SlashCommandBuilder().setName("partida").setDescription("Finalizar partida") ].map(c => c.toJSON());
+
+const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+
+(async () => { await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID), { body: commands }); })();
+
+async function addCoins(user, coins) { const atual = await db.get(${TEMPORADA}_coins_${user}) || 0; await db.set(${TEMPORADA}_coins_${user}, atual + coins); }
+
+async function addXP(user, guild, xp) { let xpAtual = await db.get(${TEMPORADA}_xp_${user}) || 0; let level = await db.get(${TEMPORADA}_level_${user}) || 1;
+
+xpAtual += xp;
+
+if (xpAtual >= LEVEL_XP * level) { xpAtual = 0; level++;
+
+await db.set(`${TEMPORADA}_level_${user}`, level);
+
+if (cargosXP[level]) {
+  const membro = await guild.members.fetch(user);
+  membro.roles.add(cargosXP[level]).catch(() => {});
+}
+
+}
+
+await db.set(${TEMPORADA}_xp_${user}, xpAtual); }
+
+async function addVIP(user, dias) { const tempo = Date.now() + dias * 86400000; await db.set(vip_${user}, tempo); }
+
+setInterval(async () => { const all = await db.all(); for (const d of all) { if (d.id.startsWith("vip_")) { if (Date.now() > d.value) await db.delete(d.id); } } }, 60000);
+
+function ganhoCoins() { return Math.floor(Math.random() * 10) + 1; } function ganhoXP() { return Math.floor(Math.random() * 20) + 20; }
+
+client.on(Events.InteractionCreate, async interaction => {
+
+if (interaction.isChatInputCommand()) {
+
+if (interaction.commandName === "partida") {
+  const coins = ganhoCoins();
+  const xp = ganhoXP();
+
+  await addCoins(interaction.user.id, coins);
+  await addXP(interaction.user.id, interaction.guild, xp);
+
+  return interaction.reply({ content: `XP: ${xp} | Coins: ${coins}`, ephemeral: true });
+}
+
+if (interaction.commandName === "painel") {
   const embed = new EmbedBuilder()
-    .setTitle("🛒 LOJA ORG TK")
-    .setDescription("Compre cargos e VIPs com suas moedas!")
-    .setColor("Gold");
+    .setColor("Gold")
+    .setTitle("ORG TK")
+    .setDescription("Use os botões abaixo");
 
   const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("vip7").setLabel("VIP 7D - 10 moedas").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("vip30").setLabel("VIP 30D - 40 moedas").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("mira").setLabel("Mira - 45 moedas").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("rei").setLabel("Rei - 25 moedas").setStyle(ButtonStyle.Primary)
+    new ButtonBuilder().setCustomId("perfil").setLabel("Perfil").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("rank").setLabel("Ranking").setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId("loja").setLabel("Loja").setStyle(ButtonStyle.Secondary)
   );
 
-  await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+  return interaction.reply({ embeds: [embed], components: [row] });
 }
 
-// Comprar item
-async function comprar(interaction) {
-  const item = LOJA[interaction.customId];
-  if (!item) return;
-
-  const user = interaction.user.id;
-  let perfil = await db.get(user) || { moedas: 0, xp: 0 };
-
-  if (perfil.moedas < item.preco)
-    return interaction.reply({ content: "❌ Você não tem moedas suficientes!", ephemeral: true });
-
-  perfil.moedas -= item.preco;
-
-  if (item.dias) {
-    const expire = Date.now() + item.dias * 24 * 60 * 60 * 1000;
-    perfil.vipExpire = expire;
-  }
-
-  await db.set(user, perfil);
-
-  const membro = await interaction.guild.members.fetch(user);
-  if (item.cargo) await membro.roles.add(item.cargo);
-
-  interaction.reply({ content: `✅ Você comprou ${item.nome}!`, ephemeral: true });
 }
 
-// Usar sorte
-async function usarSorte(user) {
-  let perfil = await db.get(user) || { moedas: 0, xp: 0 };
-  const rand = Math.random() * 100;
+if (interaction.isButton()) {
 
-  if (rand <= 3) perfil.moedas += 200;
-  else if (rand <= 13) perfil.moedas += 100;
-  else if (rand <= 43) perfil.xp += 400;
-  else perfil.xp += 200;
-
-  await db.set(user, perfil);
-  return perfil;
-}
-
-// Perfil
-function pegarLiga(perfil) {
-  if (!perfil) return null;
-  const { bronze, prata, gold } = config.ligaIds;
-
-  if (perfil.xp >= 2000) return gold;
-  if (perfil.xp >= 1000) return prata;
-  return bronze;
-}
-
-function vipTexto(perfil) {
-  if (!perfil || !perfil.vipExpire) return "Nenhum VIP";
-  const tempo = perfil.vipExpire - Date.now();
-  if (tempo <= 0) return "VIP expirado";
-  return `VIP ativo - expira em ${Math.floor(tempo / 1000 / 60 / 60)}h`;
-}
-
-async function abrirPerfil(interaction) {
-  const user = interaction.user.id;
-  let perfil = await db.get(user) || { moedas: 0, xp: 0 };
+if (interaction.customId === "perfil") {
+  const xp = await db.get(`${TEMPORADA}_xp_${interaction.user.id}`) || 0;
+  const coins = await db.get(`${TEMPORADA}_coins_${interaction.user.id}`) || 0;
+  const level = await db.get(`${TEMPORADA}_level_${interaction.user.id}`) || 1;
 
   const embed = new EmbedBuilder()
-    .setTitle(`💠 Perfil de ${interaction.user.username}`)
     .setColor("Blue")
-    .setThumbnail(config.embedImage)
-    .addFields(
-      { name: "💰 Moedas", value: `${perfil.moedas}`, inline: true },
-      { name: "⭐ XP", value: `${perfil.xp}`, inline: true },
-      { name: "🏆 Liga", value: `<@&${pegarLiga(perfil)}>`, inline: true },
-      { name: "🎖 VIP", value: vipTexto(perfil), inline: true }
-    )
-    .setFooter({ text: "ORG TK • Divirta-se farmando!" });
+    .setTitle("Perfil")
+    .setDescription(`Level: ${level}\nXP: ${xp}\nCoins: ${coins}`);
 
-  await interaction.reply({ embeds: [embed], ephemeral: true });
+  return interaction.reply({ embeds: [embed], ephemeral: true });
 }
 
-// Registrar Slash Commands
-client.once("ready", async () => {
-  console.log(`Bot online: ${client.user.tag}`);
+if (interaction.customId === "rank") {
+  let data = await db.all();
 
-  const commands = [
-    new SlashCommandBuilder().setName("painelmoeda").setDescription("Abre o painel da loja"),
-    new SlashCommandBuilder().setName("perfil").setDescription("Mostra seu perfil")
-  ].map(cmd => cmd.toJSON());
+  data = data
+    .filter(x => x.id.startsWith(`${TEMPORADA}_level_`))
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 10);
 
-  const rest = new REST({ version: "10" }).setToken(config.token);
-  await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-});
+  let desc = "";
 
-// Interações
-client.on("interactionCreate", async interaction => {
-  if (!interaction.isChatInputCommand() && !interaction.isButton()) return;
-
-  if (interaction.isChatInputCommand()) {
-    await interaction.deferReply({ ephemeral: true });
-    if (interaction.commandName === "painelmoeda") await abrirLoja(interaction);
-    else if (interaction.commandName === "perfil") await abrirPerfil(interaction);
+  for (let i = 0; i < data.length; i++) {
+    const id = data[i].id.split("_")[2];
+    desc += `${i + 1}. <@${id}> - Level ${data[i].value}\n`;
   }
 
-  if (interaction.isButton()) {
-    await interaction.deferReply({ ephemeral: true });
-    await comprar(interaction);
-  }
-});
+  const embed = new EmbedBuilder()
+    .setColor("Gold")
+    .setTitle("Ranking semanal")
+    .setDescription(desc || "Sem dados");
 
-// Login
-await client.login(config.token);
+  return interaction.reply({ embeds: [embed], ephemeral: true });
+}
+
+if (interaction.customId === "loja") {
+  const embed = new EmbedBuilder()
+    .setColor("Purple")
+    .setTitle("Loja")
+    .setDescription("Escolha");
+
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId("vip7").setLabel("VIP 7 dias").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("vip30").setLabel("VIP 30 dias").setStyle(ButtonStyle.Primary)
+  );
+
+  return interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+}
+
+if (interaction.customId === "vip7" || interaction.customId === "vip30") {
+  const preco = interaction.customId === "vip7" ? 100 : 300;
+  const dias = interaction.customId === "vip7" ? 7 : 30;
+
+  const coins = await db.get(`${TEMPORADA}_coins_${interaction.user.id}`) || 0;
+
+  if (coins < preco) return interaction.reply({ content: "Sem coins", ephemeral: true });
+
+  await db.set(`${TEMPORADA}_coins_${interaction.user.id}`, coins - preco);
+
+  await addVIP(interaction.user.id, dias);
+
+  return interaction.reply({ content: `VIP ativado por ${dias} dias`, ephemeral: true });
+}
+
+} });
+
+client.login(process.env.TOKEN);
