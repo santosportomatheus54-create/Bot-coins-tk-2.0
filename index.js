@@ -12,7 +12,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
 async function saldo(id) { try { return (await db.get(coins_${id})) || 0; } catch { return 0; } }
 
-async function removerCoins(id, valor) { try { const atual = await saldo(id); if (atual < valor) return false; await db.sub(coins_${id}, valor); return true; } catch { return false; } }
+async function removerCoins(id, valor) { try { const atual = await saldo(id); if (atual < valor) return false; await db.sub(coins_${id}, valor); return true; } catch { return false; } }`, valor); return true; } catch { return false; } }
 
 client.on(Events.InteractionCreate, async i => { try { if (!i.isChatInputCommand()) return;
 
@@ -156,4 +156,4 @@ if (i.customId === "inventario") {
 
 client.once(Events.ClientReady, () => { console.log("Bot online"); });
 
-client.login(process.env.TOKEN);
+client.login(process.env.TOKEN);g
