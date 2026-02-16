@@ -12,7 +12,7 @@ const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
 setInterval(async () => { try { const data = await db.all(); fs.writeFileSync("backup.json", JSON.stringify(data, null, 2)); } catch {} }, 600000);
 
-(async () => { if (fs.existsSync("backup.json")) { const data = JSON.parse(fs.readFileSync("backup.json")); for (const i of data) await db.set(i.id, i.value); } })();
+(async () => { if (fs.existsSync("backup.json")) { const data = JSON.parse(fs.readFileSync("backup.json").toString()); for (const i of data) await db.set(i.id, i.value); } })();
 
 client.on(Events.InteractionCreate, async i => { if (!i.isChatInputCommand()) return;
 
