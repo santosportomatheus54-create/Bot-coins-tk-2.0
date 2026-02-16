@@ -156,4 +156,4 @@ if (i.customId === "inventario") {
 
 client.once(Events.ClientReady, () => { console.log("Bot online"); });
 
-client.login(process.env.TOKEN);g
+client.login(process.env.TOKEN);
