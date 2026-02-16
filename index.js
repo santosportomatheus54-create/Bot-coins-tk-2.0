@@ -1,150 +1,115 @@
 import { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, REST, Routes, Events } from "discord.js"; import { QuickDB } from "quick.db";
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] }); const db = new QuickDB();
-
-const LOGS = "1471187137595441152";
+const client = new Client({ intents: [GatewayIntentBits.Guilds] }); const db = new QuickDB(); const LOGS = "1471187137595441152";
 
 const comandos = [ new SlashCommandBuilder().setName("painel").setDescription("Abrir painel"), new SlashCommandBuilder().setName("partida").setDescription("Ganhar recompensa") ].map(x => x.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
 
-(async () => { try { await rest.put( Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID), { body: comandos } ); console.log("Comandos registrados"); } catch (e) { console.error("Erro comandos", e); } })();
+(async () => { try { await rest.put(Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID), { body: comandos }); console.log("Comandos registrados"); } catch (e) { console.error("Erro comandos", e); } })();
 
 async function saldo(id) { try { return (await db.get(coins_${id})) || 0; } catch { return 0; } }
 
-async function removerCoins(id, valor) { try { const atual = await saldo(id); if (atual < valor) return false; await db.sub(coins_${id}, valor); return true; } catch { return false; } }`, valor); return true; } catch { return false; } }
+async function removerCoins(id, valor) { try { const atual = await saldo(id); if (atual < valor) return false; await db.sub(coins_${id}, valor); return true; } catch { return false; } }
 
-client.on(Events.InteractionCreate, async i => { try { if (!i.isChatInputCommand()) return;
+client.on(Events.InteractionCreate, async i => { try { if (i.isChatInputCommand()) { if (i.commandName === "painel") { const embed = new EmbedBuilder() .setColor("#00ff88") .setTitle("ORG TK • Sistema de Farm") .setDescription("Ganhe moedas, suba no ranking e desbloqueie recompensas exclusivas.\n\nUse os botões abaixo para acessar o sistema.") .addFields( { name: "Ranking", value: "Veja os melhores jogadores", inline: true }, { name: "Perfil", value: "Veja suas moedas e XP", inline: true }, { name: "Inventario", value: "Seus itens comprados", inline: true }, { name: "Loja", value: "Compre VIP e recompensas", inline: true } ) .setFooter({ text: "ORG TK • Economia" });
 
-if (i.commandName === "painel") {
-
-const embed = new EmbedBuilder() .setColor("#00ff88") .setTitle("ORG TK • Sistema de Farm") .setDescription( "Ganhe moedas, suba no ranking e desbloqueie recompensas exclusivas.
-
-" + "Use os botões abaixo para acessar o sistema." ) .addFields( { name: "Ranking", value: "Veja os melhores jogadores", inline: true }, { name: "Perfil", value: "Veja suas moedas e XP", inline: true }, { name: "Inventario", value: "Seus itens comprados", inline: true }, { name: "Loja", value: "Compre VIP e recompensas", inline: true } ) .setFooter({ text: "ORG TK • Economia" });
-
-const row = new ActionRowBuilder().addComponents( new ButtonBuilder().setCustomId("ranking").setLabel("Ranking").setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId("perfil").setLabel("Perfil").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("inventario").setLabel("Inventario").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId("loja").setLabel("Loja").setStyle(ButtonStyle.Danger) );
-
-await i.reply({ embeds: [embed], components: [row] }); }
-
-if (i.commandName === "partida") {
-  let coins = Math.floor(Math.random() * 10) + 1;
-
-  const vip = await db.get(`vip_${i.user.id}`);
-  if (vip && vip > Date.now()) coins *= 2;
-
-  const xp = Math.floor(Math.random() * 50) + 10;
-
-  await db.add(`coins_${i.user.id}`, coins);
-  await db.add(`xp_${i.user.id}`, xp);
-
-  const canal = client.channels.cache.get(LOGS);
-  canal?.send(`${i.user.tag} ganhou ${coins} coins e ${xp} xp`);
-
-  await i.reply(`+${coins} coins | +${xp} XP`);
-}
-
-} catch (e) { console.error(e); } });
-
-client.on(Events.InteractionCreate, async i => { try { if (!i.isButton()) return;
-
-const canal = client.channels.cache.get(LOGS);
-
-if (i.customId === "perfil") {
-  const coins = await saldo(i.user.id);
-  const xp = (await db.get(`xp_${i.user.id}`)) || 0;
-
-  const e = new EmbedBuilder()
-    .setTitle("Perfil")
-    .setDescription(`Coins: ${coins}\nXP: ${xp}`);
-
-  return i.reply({ embeds: [e], ephemeral: true });
-}
-
-if (i.customId === "ranking") {
-  const all = await db.all();
-  const users = all
-    .filter(x => x.id.startsWith("xp_"))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 10);
-
-  let desc = "";
-
-  for (let x = 0; x < users.length; x++) {
-    const id = users[x].id.replace("xp_", "");
-    desc += `${x + 1}. <@${id}> - ${users[x].value} XP\n`;
-  }
-
-  const e = new EmbedBuilder()
-    .setTitle("Ranking")
-    .setDescription(desc || "Sem dados");
-
-  return i.reply({ embeds: [e], ephemeral: true });
-}
-
-if (i.customId === "loja") {
-  const e = new EmbedBuilder()
-    .setTitle("Loja")
-    .setDescription(
-      "VIP 7D - 10 coins\n" +
-      "VIP 30D - 50 coins\n" +
-      "CG Mira abusiva - 45 coins\n" +
-      "CG Rei da TK - 45 coins"
+const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("ranking").setLabel("Ranking").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("perfil").setLabel("Perfil").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("inventario").setLabel("Inventario").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("loja").setLabel("Loja").setStyle(ButtonStyle.Danger)
     );
 
-  const r1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("vip7").setLabel("VIP 7D").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId("vip30").setLabel("VIP 30D").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId("mira").setLabel("CG Mira abusiva").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("rei").setLabel("CG Rei da TK").setStyle(ButtonStyle.Primary)
-  );
+    return await i.reply({ embeds: [embed], components: [row] });
+  }
 
-  return i.reply({ embeds: [e], components: [r1], ephemeral: true });
+  if (i.commandName === "partida") {
+    let coins = Math.floor(Math.random() * 10) + 1;
+    const vip = await db.get(`vip_${i.user.id}`);
+    if (vip && vip > Date.now()) coins *= 2;
+
+    const xp = Math.floor(Math.random() * 50) + 10;
+
+    await db.add(`coins_${i.user.id}`, coins);
+    await db.add(`xp_${i.user.id}`, xp);
+
+    const canal = client.channels.cache.get(LOGS);
+    canal?.send(`${i.user.tag} ganhou ${coins} coins e ${xp} xp`);
+
+    return await i.reply(`+${coins} coins | +${xp} XP`);
+  }
 }
 
-if (i.customId === "vip7") {
-  if (!(await removerCoins(i.user.id, 10))) return i.reply({ content: "Sem coins", ephemeral: true });
+if (i.isButton()) {
+  const canal = client.channels.cache.get(LOGS);
 
-  await db.set(`vip_${i.user.id}`, Date.now() + 604800000);
-  canal?.send(`${i.user.tag} comprou VIP 7D`);
+  if (i.customId === "perfil") {
+    const coins = await saldo(i.user.id);
+    const xp = (await db.get(`xp_${i.user.id}`)) || 0;
+    const embed = new EmbedBuilder().setTitle("Perfil").setDescription(`Coins: ${coins}\nXP: ${xp}`);
+    return await i.reply({ embeds: [embed], ephemeral: true });
+  }
 
-  return i.reply({ content: "Comprado", ephemeral: true });
-}
+  if (i.customId === "ranking") {
+    const all = await db.all();
+    const users = all.filter(x => x.id.startsWith("xp_")).sort((a, b) => b.value - a.value).slice(0, 10);
+    let desc = "";
+    for (let x = 0; x < users.length; x++) {
+      const id = users[x].id.replace("xp_", "");
+      desc += `${x + 1}. <@${id}> - ${users[x].value} XP\n`;
+    }
+    const embed = new EmbedBuilder().setTitle("Ranking").setDescription(desc || "Sem dados");
+    return await i.reply({ embeds: [embed], ephemeral: true });
+  }
 
-if (i.customId === "vip30") {
-  if (!(await removerCoins(i.user.id, 50))) return i.reply({ content: "Sem coins", ephemeral: true });
+  if (i.customId === "inventario") {
+    const inv = (await db.get(`inv_${i.user.id}`)) || [];
+    const embed = new EmbedBuilder().setTitle("Inventario").setDescription(inv.length ? inv.join("\n") : "Vazio");
+    return await i.reply({ embeds: [embed], ephemeral: true });
+  }
 
-  await db.set(`vip_${i.user.id}`, Date.now() + 2592000000);
-  canal?.send(`${i.user.tag} comprou VIP 30D`);
+  if (i.customId === "loja") {
+    const embed = new EmbedBuilder()
+      .setTitle("Loja")
+      .setDescription("VIP 7D - 10 coins\nVIP 30D - 50 coins\nCG Mira abusiva - 45 coins\nCG Rei da TK - 45 coins");
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("vip7").setLabel("VIP 7D").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("vip30").setLabel("VIP 30D").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("mira").setLabel("CG Mira abusiva").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("rei").setLabel("CG Rei da TK").setStyle(ButtonStyle.Primary)
+    );
+    return await i.reply({ embeds: [embed], components: [row], ephemeral: true });
+  }
 
-  return i.reply({ content: "Comprado", ephemeral: true });
-}
+  if (i.customId === "vip7") {
+    if (!(await removerCoins(i.user.id, 10))) return i.reply({ content: "Sem coins", ephemeral: true });
+    await db.set(`vip_${i.user.id}`, Date.now() + 604800000);
+    canal?.send(`${i.user.tag} comprou VIP 7D`);
+    return i.reply({ content: "Comprado", ephemeral: true });
+  }
 
-if (i.customId === "mira") {
-  if (!(await removerCoins(i.user.id, 45))) return i.reply({ content: "Sem coins", ephemeral: true });
+  if (i.customId === "vip30") {
+    if (!(await removerCoins(i.user.id, 50))) return i.reply({ content: "Sem coins", ephemeral: true });
+    await db.set(`vip_${i.user.id}`, Date.now() + 2592000000);
+    canal?.send(`${i.user.tag} comprou VIP 30D`);
+    return i.reply({ content: "Comprado", ephemeral: true });
+  }
 
-  await db.push(`inv_${i.user.id}`, "Mira abusiva");
-  canal?.send(`${i.user.tag} comprou Mira abusiva`);
+  if (i.customId === "mira") {
+    if (!(await removerCoins(i.user.id, 45))) return i.reply({ content: "Sem coins", ephemeral: true });
+    await db.push(`inv_${i.user.id}`, "Mira abusiva");
+    canal?.send(`${i.user.tag} comprou Mira abusiva`);
+    return i.reply({ content: "Adicionado", ephemeral: true });
+  }
 
-  return i.reply({ content: "Adicionado", ephemeral: true });
-}
+  if (i.customId === "rei") {
+    if (!(await removerCoins(i.user.id, 45))) return i.reply({ content: "Sem coins", ephemeral: true });
+    await db.push(`inv_${i.user.id}`, "Rei da TK");
+    canal?.send(`${i.user.tag} comprou Rei da TK`);
+    return i.reply({ content: "Adicionado", ephemeral: true });
+  }
 
-if (i.customId === "rei") {
-  if (!(await removerCoins(i.user.id, 45))) return i.reply({ content: "Sem coins", ephemeral: true });
-
-  await db.push(`inv_${i.user.id}`, "Rei da TK");
-  canal?.send(`${i.user.tag} comprou Rei da TK`);
-
-  return i.reply({ content: "Adicionado", ephemeral: true });
-}
-
-if (i.customId === "inventario") {
-  const inv = (await db.get(`inv_${i.user.id}`)) || [];
-
-  const e = new EmbedBuilder()
-    .setTitle("Inventario")
-    .setDescription(inv.length ? inv.join("\n") : "Vazio");
-
-  return i.reply({ embeds: [e], ephemeral: true });
 }
 
 } catch (e) { console.error(e); } });
