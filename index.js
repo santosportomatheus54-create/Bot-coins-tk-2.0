@@ -17,19 +17,14 @@ async function removerCoins(id, valor) { try { const atual = await saldo(id); if
 client.on(Events.InteractionCreate, async i => { try { if (!i.isChatInputCommand()) return;
 
 if (i.commandName === "painel") {
-  const e = new EmbedBuilder()
-    .setTitle("ORG TK")
-    .setDescription("Sistema de farm");
 
-  const r = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("perfil").setLabel("Perfil").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("ranking").setLabel("Ranking").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("loja").setLabel("Loja").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId("inventario").setLabel("Inventario").setStyle(ButtonStyle.Secondary)
-  );
+const embed = new EmbedBuilder() .setColor("#00ff88") .setTitle("ORG TK • Sistema de Farm") .setDescription( "Ganhe moedas, suba no ranking e desbloqueie recompensas exclusivas.
 
-  await i.reply({ embeds: [e], components: [r] });
-}
+" + "Use os botões abaixo para acessar o sistema." ) .addFields( { name: "Ranking", value: "Veja os melhores jogadores", inline: true }, { name: "Perfil", value: "Veja suas moedas e XP", inline: true }, { name: "Inventario", value: "Seus itens comprados", inline: true }, { name: "Loja", value: "Compre VIP e recompensas", inline: true } ) .setFooter({ text: "ORG TK • Economia" });
+
+const row = new ActionRowBuilder().addComponents( new ButtonBuilder().setCustomId("ranking").setLabel("Ranking").setStyle(ButtonStyle.Primary), new ButtonBuilder().setCustomId("perfil").setLabel("Perfil").setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId("inventario").setLabel("Inventario").setStyle(ButtonStyle.Secondary), new ButtonBuilder().setCustomId("loja").setLabel("Loja").setStyle(ButtonStyle.Danger) );
+
+await i.reply({ embeds: [embed], components: [row] }); }
 
 if (i.commandName === "partida") {
   let coins = Math.floor(Math.random() * 10) + 1;
