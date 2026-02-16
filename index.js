@@ -14,25 +14,37 @@ setInterval(async () => { try { const data = await db.all(); fs.writeFileSync("b
 
 (async () => { if (fs.existsSync("backup.json")) { const data = JSON.parse(fs.readFileSync("backup.json").toString()); for (const i of data) await db.set(i.id, i.value); } })();
 
+async function saldo(id) { return (await db.get(coins_${id})) || 0; }
+
+async function removerCoins(id, valor) { const atual = await saldo(id); if (atual < valor) return false; await db.sub(coins_${id}, valor); return true; }
+
 client.on(Events.InteractionCreate, async i => { if (!i.isChatInputCommand()) return;
 
-if (i.commandName === "painel") { const e = new EmbedBuilder() .setTitle("ORG TK 💰") .setDescription("Vem farmar 🔥");
+if (i.commandName === "painel") { const e = new EmbedBuilder() .setTitle("ORG TK") .setDescription("Sistema de farm");
 
 const r = new ActionRowBuilder().addComponents(
   new ButtonBuilder().setCustomId("perfil").setLabel("Perfil").setStyle(ButtonStyle.Primary),
   new ButtonBuilder().setCustomId("ranking").setLabel("Ranking").setStyle(ButtonStyle.Primary),
   new ButtonBuilder().setCustomId("loja").setLabel("Loja").setStyle(ButtonStyle.Success),
-  new ButtonBuilder().setCustomId("inventario").setLabel("Inventário").setStyle(ButtonStyle.Secondary)
+  new ButtonBuilder().setCustomId("inventario").setLabel("Inventario").setStyle(ButtonStyle.Secondary)
 );
 
 i.reply({ embeds: [e], components: [r] });
 
 }
 
-if (i.commandName === "partida") { const coins = Math.floor(Math.random() * 10) + 1; const xp = Math.floor(Math.random() * 50) + 10;
+if (i.commandName === "partida") { let coins = Math.floor(Math.random() * 10) + 1;
+
+const vip = await db.get(`vip_${i.user.id}`);
+if (vip && vip > Date.now()) coins *= 2;
+
+const xp = Math.floor(Math.random() * 50) + 10;
 
 await db.add(`coins_${i.user.id}`, coins);
 await db.add(`xp_${i.user.id}`, xp);
+
+const canal = client.channels.cache.get(logs);
+canal?.send(`${i.user.tag} ganhou ${coins} coins e ${xp} xp`);
 
 i.reply(`+${coins} coins | +${xp} XP`);
 
@@ -41,6 +53,33 @@ i.reply(`+${coins} coins | +${xp} XP`);
 client.on(Events.InteractionCreate, async i => { if (!i.isButton()) return;
 
 const canal = client.channels.cache.get(logs);
+
+if (i.customId === "perfil") { const coins = await saldo(i.user.id); const xp = (await db.get(xp_${i.user.id})) || 0;
+
+const e = new EmbedBuilder()
+  .setTitle("Perfil")
+  .setDescription(`Coins: ${coins}\nXP: ${xp}`);
+
+i.reply({ embeds: [e], ephemeral: true });
+
+}
+
+if (i.customId === "ranking") { const all = await db.all(); const users = all .filter(x => x.id.startsWith("xp_")) .sort((a, b) => b.value - a.value) .slice(0, 10);
+
+let desc = "";
+
+for (let x = 0; x < users.length; x++) {
+  const id = users[x].id.replace("xp_", "");
+  desc += `${x + 1}. <@${id}> - ${users[x].value} XP\n`;
+}
+
+const e = new EmbedBuilder()
+  .setTitle("Ranking")
+  .setDescription(desc || "Sem dados");
+
+i.reply({ embeds: [e], ephemeral: true });
+
+}
 
 if (i.customId === "loja") { const e = new EmbedBuilder() .setTitle("Loja") .setDescription( "VIP 7D - 10 coins\n" + "VIP 30D - 50 coins\n" + "CG Mira abusiva - 45 coins\n" + "CG Rei da TK - 45 coins" );
 
@@ -59,13 +98,41 @@ i.reply({ embeds: [e], components: [r1, r2], ephemeral: true });
 
 }
 
-if (i.customId === "vip7") { await db.set(vip_${i.user.id}, Date.now() + 604800000); canal?.send(💰 ${i.user.tag} comprou VIP 7D); i.reply({ content: "Comprado", ephemeral: true }); }
+if (i.customId === "vip7") { if (!(await removerCoins(i.user.id, 10))) return i.reply({ content: "Sem coins", ephemeral: true });
 
-if (i.customId === "vip30") { await db.set(vip_${i.user.id}, Date.now() + 2592000000); canal?.send(💰 ${i.user.tag} comprou VIP 30D); i.reply({ content: "Comprado", ephemeral: true }); }
+await db.set(`vip_${i.user.id}`, Date.now() + 604800000);
+canal?.send(`${i.user.tag} comprou VIP 7D`);
 
-if (i.customId === "mira") { await db.push(inv_${i.user.id}, "Mira abusiva"); canal?.send(💰 ${i.user.tag} comprou CG Mira abusiva); i.reply({ content: "Inventário", ephemeral: true }); }
+i.reply({ content: "Comprado", ephemeral: true });
 
-if (i.customId === "rei") { await db.push(inv_${i.user.id}, "Rei da TK"); canal?.send(💰 ${i.user.tag} comprou CG Rei da TK); i.reply({ content: "Inventário", ephemeral: true }); }
+}
+
+if (i.customId === "vip30") { if (!(await removerCoins(i.user.id, 50))) return i.reply({ content: "Sem coins", ephemeral: true });
+
+await db.set(`vip_${i.user.id}`, Date.now() + 2592000000);
+canal?.send(`${i.user.tag} comprou VIP 30D`);
+
+i.reply({ content: "Comprado", ephemeral: true });
+
+}
+
+if (i.customId === "mira") { if (!(await removerCoins(i.user.id, 45))) return i.reply({ content: "Sem coins", ephemeral: true });
+
+await db.push(`inv_${i.user.id}`, "Mira abusiva");
+canal?.send(`${i.user.tag} comprou Mira abusiva`);
+
+i.reply({ content: "Adicionado", ephemeral: true });
+
+}
+
+if (i.customId === "rei") { if (!(await removerCoins(i.user.id, 45))) return i.reply({ content: "Sem coins", ephemeral: true });
+
+await db.push(`inv_${i.user.id}`, "Rei da TK");
+canal?.send(`${i.user.tag} comprou Rei da TK`);
+
+i.reply({ content: "Adicionado", ephemeral: true });
+
+}
 
 if (i.customId === "caixa") { const s = Math.random() * 100; let premio = "Nada";
 
@@ -86,7 +153,7 @@ if (s <= 50) {
   await db.push(`inv_${i.user.id}`, "Sala paga");
 }
 
-canal?.send(`🎁 ${i.user.tag} abriu caixa e ganhou ${premio}`);
+canal?.send(`${i.user.tag} abriu caixa e ganhou ${premio}`);
 
 i.reply({ content: premio, ephemeral: true });
 
@@ -95,11 +162,13 @@ i.reply({ content: premio, ephemeral: true });
 if (i.customId === "inventario") { const inv = await db.get(inv_${i.user.id}) || [];
 
 const e = new EmbedBuilder()
-  .setTitle("Inventário")
+  .setTitle("Inventario")
   .setDescription(inv.length ? inv.join("\n") : "Vazio");
 
 i.reply({ embeds: [e], ephemeral: true });
 
 } });
+
+client.once(Events.ClientReady, () => { console.log("Bot online"); });
 
 client.login(process.env.TOKEN);
